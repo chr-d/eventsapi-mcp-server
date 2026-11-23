@@ -12,15 +12,28 @@ type EventRecord = {
 
 const eventId = z.number().int().positive();
 
-const upcomingEventsInput = z.strictObject({
-  location: z
-    .string()
-    .trim()
-    .min(1)
-    .optional()
-    .describe("Matches any part of the event's location, ignoring case."),
-  limit: z.number().int().min(1).max(50).default(10),
-});
+const upcomingEventsInput = z
+  .strictObject({
+    from: z.iso
+      .date()
+      .optional()
+      .describe("First UTC calendar date to include (YYYY-MM-DD)."),
+    to: z.iso
+      .date()
+      .optional()
+      .describe("Last UTC calendar date to include (YYYY-MM-DD)."),
+    location: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .describe("Matches any part of the event's location, ignoring case."),
+    limit: z.number().int().min(1).max(50).default(10),
+  })
+  .refine(({ from, to }) => !from || !to || from <= to, {
+    message: "The to date must be on or after the from date.",
+    path: ["to"],
+  });
 
 const createEventInput = z.strictObject({
   title: z.string().trim().min(3).describe("The event title."),
@@ -84,18 +97,26 @@ export function createServer(): McpServer {
     "get_upcoming_events",
     {
       description:
-        "Get upcoming events, soonest first. Pass location for a particular place. The tool filters by location before applying the limit, which defaults to 10. Each event includes its ID, title, date, and location.",
+        "Get upcoming events, soonest first. For a date range such as next week, pass from and to as inclusive UTC dates. Pass location for a particular place. The tool applies all filters before the limit, which defaults to 10. Each event includes its ID, title, date, and location.",
       inputSchema: upcomingEventsInput,
     },
-    ({ location, limit }) =>
+    ({ from, to, location, limit }) =>
       eventToolResult(async () => {
         const events = await eventsApi<EventRecord[]>("/upcoming");
         const locationQuery = location?.toLowerCase();
-        const matchingEvents = locationQuery
-          ? events.filter((event) =>
-              event.location.toLowerCase().includes(locationQuery),
-            )
-          : events;
+
+        const matchingEvents = events.filter((event) => {
+          if (
+            locationQuery &&
+            !event.location.toLowerCase().includes(locationQuery)
+          ) {
+            return false;
+          }
+          if (!from && !to) return true;
+
+          const date = event.date.slice(0, 10);
+          return (!from || date >= from) && (!to || date <= to);
+        });
 
         return matchingEvents
           .slice(0, limit)
