@@ -26,7 +26,10 @@ export async function askAssistant(
   question: string,
   history: ConversationMessage[] = [],
 ): Promise<string> {
-  const mcp = new Client({ name: "events-assistant", version: "1.0.0" });
+  const mcp = new Client(
+    { name: "events-assistant", version: "1.0.0" },
+    { versionNegotiation: { mode: "auto" } },
+  );
 
   try {
     await mcp.connect(new StreamableHTTPClientTransport(mcpUrl));
