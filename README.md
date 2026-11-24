@@ -1,6 +1,6 @@
 # Events MCP Server
 
-A TypeScript and Express project that uses Claude to list, look up, create, and update events. It builds on the [Tool Calling API](https://github.com/chr-d/toolcall-api) by moving the event tools into a separate MCP server.
+A TypeScript and Express project that uses Claude to list, look up, create, update, and delete events. It builds on the [Tool Calling API](https://github.com/chr-d/toolcall-api) by moving the event tools into a separate MCP server.
 
 ## Run locally
 
@@ -16,7 +16,7 @@ npm ci
 cp .env.example .env
 ```
 
-In `.env`, point `EVENTS_API_URL` to the running Events API (default `http://localhost:3001`). Set `EVENTS_API_TOKEN` to an Events API bearer token if you want to create or update events.
+In `.env`, point `EVENTS_API_URL` to the running Events API (default `http://localhost:3001`). Set `EVENTS_API_TOKEN` to an Events API bearer token if you want to create, update, or delete events.
 
 ```sh
 npm run dev
@@ -61,3 +61,7 @@ curl http://localhost:3000/assistant \
     ]
   }'
 ```
+
+### Delete an event
+
+Ask the assistant to delete an event by name or ID. The assistant is instructed to identify the event and ask for confirmation before calling `delete_event`. Include the original request and the assistant's reply in `history` when you send your confirmation as a follow-up.
