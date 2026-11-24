@@ -1,6 +1,11 @@
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { EventToolError, eventsApi } from "./eventsApi.ts";
+import {
+  deleteEvent,
+  eventsApi,
+  EventToolError,
+  eventWriteHeaders,
+} from "./eventsApi.ts";
 
 type EventRecord = {
   id: number;
@@ -57,23 +62,7 @@ const updateEventInput = createEventInput
     "Provide at least one event field to update",
   );
 
-function eventWriteHeaders() {
-  const token = process.env.EVENTS_API_TOKEN;
-  if (!token) {
-    throw new EventToolError("The events system is unavailable.", {
-      cause: new Error("EVENTS_API_TOKEN is required to write events"),
-    });
-  }
-
-  return {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-}
-
-async function eventToolResult(
-  run: () => Promise<EventRecord | Omit<EventRecord, "description">[]>,
-): Promise<CallToolResult> {
+async function eventToolResult<T>(run: () => Promise<T>): Promise<CallToolResult> {
   try {
     const result = await run();
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
@@ -182,6 +171,23 @@ export function createServer(): McpServer {
           throw new EventToolError(`No event with id ${id} exists.`);
         }
         return event;
+      }),
+  );
+
+  server.registerTool(
+    "delete_event",
+    {
+      description:
+        "Permanently delete one event by ID. Call only after the user explicitly requests deletion and confirms that specific event in a follow-up message.",
+      inputSchema: z.strictObject({
+        id: eventId.describe("The ID of the event to delete."),
+      }),
+      annotations: { destructiveHint: true },
+    },
+    ({ id }) =>
+      eventToolResult(async () => {
+        await deleteEvent(id);
+        return { id, deleted: true };
       }),
   );
 
